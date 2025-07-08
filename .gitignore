@@ -1,0 +1,19 @@
+# Ignore all .ipynb_checkpoints folders
+**/.ipynb_checkpoints/
+
+# Ignore the entire config directory
+/config/
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# Environment files
+.env
+*.env
+
+# Jupyter Notebook metadata
+.ipynb_checkpoints/
+
+# VSCode settings
+.vscode/
