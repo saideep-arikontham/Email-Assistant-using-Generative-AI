@@ -1,1 +1,3 @@
-# Email-Assistant-using-Generative-AI-LLMs
+# Email-Assistant-using-Generative-AI
+
+The goal of this project is to create an Email assistant powered by Generative AI and Large Language Models. This email assistant will help to automate tasks like job application tracker with a csv file and online meet scheduler after request from sender via email, after checking availability (appropriate response for unavailability can also be addressed). This project is in progress.
