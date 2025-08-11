@@ -31,48 +31,50 @@ sys.path.insert(1, path)
 load_dotenv(dotenv_path=f"{path}/config/nvidia_token.env")
 
 MODEL = "mistralai/mistral-nemotron"
-TOKEN = os.getenv("MISTRAL_API_KEY")
+TOKEN = os.getenv("NVIDIA_API_KEY")
 
 
 # -----------------------------
 # SETUP PROMPT
 # -----------------------------
 
-PROMPT_MSG = """You are an expert email classification system. Your task is to analyze the provided email and classify it into one of the three categories below. Your response must be **only** the category name and nothing else.
+CLASSIFICATION_PROMPT = """You are an expert email class identification system. Your task is to analyze the provided email and identify if the email falls it each category or not. Your response must be **only** the True/False for each category without any additional text or metadata.
 
 ### **Categories**
 
 **1. JOB**
-Classify an email as `JOB` if it concerns the status of a specific job application. Recipient of the mail will be informed about the status of their application. This includes notifications that a candidate has:
-*   Successfully applied for a job (only application confirmation).
-*   Been invited for an assessment (online or offline).
+Identify an email as `JOB` if it concerns the status of a specific job application. Recipient of the mail will be informed about the status of their application. This includes notifications that a candidate has:
+*   Successfully applied/in the process of applying for a job (application confirmation).
 *   Been shortlisted for a position.
-*   Been invited to an interview (online or offline).
+*   Been invited to an interview or assessment.
 *   Been rejected for a position.
+*   Job recommendations or suggestions or ads from job boards, recruiters, companies, etc., do not classify as JOB.
 
 **2. MEET**
-Classify an email as `MEET` if the sender is requesting to schedule an **online meeting**.
-*   **Crucial Condition:** The request must be for an online/virtual meeting, NOT an in-person meeting.
+Identify an email as `MEET` if the sender is requesting to schedule a meeting, virtual or in-person.
+*   Can be a virtual meeting via Zoom, Google Meet, Teams, Video call, etc.
+*   Can be an in-person meeting at a specific location.
+*   Can be an invitation to job interviews, assessments as well.
+*   Cannot be classified as MEET unless it is mentioned explicitly in the email. Future steps of a process or a job application having a meeting do not classify as MEET.
 
 **3. OTHER**
-Classify an email as `OTHER` if it does not fit into the `JOB` or `MEET` categories. This includes, but is not limited to:
-*   General job-related discussions that are not about application status (e.g., networking, asking about a role, advertisements or requesting for an interview).
-*   Requests for an in-person or face-to-face meeting.
+Identify an email as `OTHER` only if it does not fit into the `JOB` or `MEET` categories. This includes, but is not limited to:
+*   General job-related discussions that are not about application status (e.g., networking, asking about a role, advertisements, job suggestions or requesting for an interview).
 *   Newsletters, marketing emails, personal correspondence, etc.
 
 **Important Rules:**
-* If an email mentions a "meeting" but does not specify whether it is virtual or in-person, classify it as an online meeting.
-* Any Job interview online meeting request must be classified as `JOB` category only.
-* Only classify an email as JOB if it communicates a completed action related to the application status (e.g., application received, interview invitation, rejected, job offered). Do NOT classify emails with ongoing or vague updates (e.g., "Your application is incomplete") as JOB.
-* If the email indicates that the application is incomplete or encourages the candidate to complete the incomplete application, classify it as OTHER.
-
+*   An email cannot be identified as any other class if it classifies as OTHER.
+*   An email can be identified as either JOB or either MEET or both JOB and MEET.
+*   Possible combinations of classes for email are:
+    *   JOB, MEET
+    *   JOB
+    *   MEET
+    *   OTHER
 
 ### **Output Format**
 
-Your answer must be one of these three words exactly, with no additional text:
-*   JOB
-*   MEET
-*   OTHER"""
+Your answer must be three True or False values, one for each JOB, MEET and OTHER in this exact order:
+<is a JOB>, <is a MEET>, <is OTHER>"""
 
 # -----------------------------
 # CLASSIFICATION FUNCTIONS
@@ -101,7 +103,7 @@ def classify_email(email_content: str, examples=None):
     # Add the actual email to classify
     messages.append((
         "user",
-        f"""{{email_content}}\n\n{PROMPT_MSG}"""
+        f"""{{email_content}}\n\n{CLASSIFICATION_PROMPT}"""
     ))
 
     # Create prompt template
@@ -123,9 +125,12 @@ def classify_email(email_content: str, examples=None):
     result = chain.invoke({"email_content": email_content})
 
     # Extract only capital letters (JOB, MEET, OTHER)
-    clean_result = re.sub(r'[^A-Z]+', '', result)
+    clean_result = re.sub(r'[^A-Za-z,]+', '', result)
+    split_result = clean_result.split(",")
 
-    final_result = is_result_valid_category(clean_result)
+    final_result = is_valid_result(split_result)
+    
+
     return final_result
 
 
@@ -133,8 +138,22 @@ def classify_email(email_content: str, examples=None):
 # CLASSIFICATION FALLBACK
 # -----------------------------
 
-def is_result_valid_category(result):
-    if(result not in ["JOB", "MEET", "OTHER"]):
-        return "OTHER"
+def is_valid_result(result):
+
+    if len(result) != 3: #If the result does not contain exactly three flags, return OTHER
+        return ["False", "False", "True"] #OTHER
+
+    for i in result:
+        if i not in ["True", "False"]:
+            return ["False", "False", "True"] #OTHER
+    
+    if("True" not in result or "False" not in result): #All three flags cant be True or False. Both True and False must exist in the result.
+        return ["False", "False", "True"] #OTHER
+    
+    elif((result[0]=="True" or result[1]=="True") and result[2]=="True"): #If JOB or MEET is True, OTHER must be False
+        return ["False", "False", "True"] #OTHER
+    
     else:
         return result
+    
+
