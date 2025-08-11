@@ -10,6 +10,8 @@ from langgraph.graph import StateGraph, START, END
 import json
 
 from email_classification import *
+from JOB_information_extraction import *
+from tracker_updation import *
 
 
 # -----------------------------
@@ -25,6 +27,7 @@ class TypedDictState(TypedDict):
     meet_request_details: dict
     meet_details: dict
     meet_link_sent: Literal["Successful", "Failed"]
+    is_both_meet_and_job: bool
 
 
 # -----------------------------
@@ -43,9 +46,23 @@ def email_classification(state: TypedDictState) -> dict:
     print("---CLASSIFYING EMAIL---")
     email = state.get('email')
 
-    classification = classify_email(email)
+    result = classify_email(email)
+    print(result)
+    JOB_flag, MEET_flag, OTHER_flag = result
+
+    if eval(OTHER_flag):
+        classification="OTHER"
+
+    elif eval(JOB_flag):
+        classification="JOB"
     
-    return {"classification": classification}
+    elif eval(MEET_flag):
+        classification="MEET"
+
+    if eval(JOB_flag) and eval(MEET_flag):
+        return {"classification": classification, "is_both_meet_and_job": True}
+    else:
+        return {"classification": classification, "is_both_meet_and_job":False}
 
 
 def route_after_classification(state: TypedDictState) -> Literal["JOB", "MEET", "OTHER"]:
@@ -68,10 +85,18 @@ def JOB(state: TypedDictState) -> dict:
 
 def identify_job_details(state: TypedDictState):
     print("This function reads the email to extract job title, company name and job status")
-    return {"job_details": {"title": "Data Scientist", "company": "Google", "status": "applied"}, "state": "Job details extracted"}
+    email = state["email"]
+
+    company_name, job_title, job_id, application_status = extract_JOB_info(email)
+
+    return {"job_details": {"company_name": company_name, "job_title": job_title, "job_id": job_id, "application_status":application_status}, "state": "Job details extracted"}
 
 def update_tracker(state: TypedDictState):
     print("This function updated the tracker with extracted job details")
+    job_details = state["job_details"]
+    updates_df = pd.DataFrame([job_details], index=[0])
+    upsert_applications("test_tracker", updates_df)
+    
     return {"tracker_update": "Successful", "state": "Tracker update successful"}
 
 

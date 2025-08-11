@@ -57,7 +57,7 @@ def extract_header(headers, name):
     return f"(No {name})"
 
 
-def read_emails(max_results = 10):
+def read_emails(max_results = None):
     creds = Credentials.from_authorized_user_file(f'{path}/config/token.json')
     service = build('gmail', 'v1', credentials=creds)
 
@@ -65,9 +65,11 @@ def read_emails(max_results = 10):
     yesterday = today - datetime.timedelta(1)
     query = f"after: {yesterday.strftime('%Y/%m/%d')}"
 
-    results = service.users().messages().list(userId='me', q=query).execute()
-    
-    # results = service.users().messages().list(userId='me', maxResults=max_results).execute()
+    if max_results is not None:
+        results = service.users().messages().list(userId='me', maxResults=max_results).execute()
+    else:
+        results = service.users().messages().list(userId='me', q=query).execute()
+
     
     messages = results.get('messages', [])
 
