@@ -31,7 +31,7 @@ sys.path.insert(1, path)
 
 load_dotenv(dotenv_path=f"{path}/config/nvidia_token.env")
 
-MODEL = "openai/gpt-oss-120b"
+MODEL = "mistralai/mistral-nemotron"
 TOKEN = os.getenv("NVIDIA_API_KEY")
 
 
@@ -40,28 +40,19 @@ TOKEN = os.getenv("NVIDIA_API_KEY")
 # -----------------------------
 
 INFO_EXTRACTION_PROMPT = """You are an information extraction assistant.  
-You will be given the full text of an email regarding a candidate’s job application status.
+You will be given the full text of an email regarding a meeting request. It can be a virtual meeting, in-person meeting, audio/video call, a job interview request, etc.
 
 Your task is to read the email carefully and extract the following details exactly as they appear in the email (or return empty string "" if the detail is missing):
 
-1. Company Name — The company or organization sending the email. This referes to the name of the company that is mentioned in the email and does not necessarily refer to the sender's name. For example, if the email is sent by Amazon talent acquisition team or Amazon career site or Amazon hiring manager, etc., the company name is Amazon.
-2. Job Role — The job title or role mentioned in the email.
-3. Job ID — The job requisition ID, reference number, or posting number mentioned.
-4. Application Status — One of the following categories that best describes the current stage:
-   - application incomplete
-   - applied
-   - assessment
-   - interview
-   - job offered
-   - rejected
-   - withdrawn
-   - other (if none of the above applies)
-5. Email Sent by - The sender of the email. It can be the person, talent acquisition team, etc.
+1. Request sent by — The name of the person or body that is requesting the meeting.
+2. Requested date and time - The date and time when the meeting is requested to be held. Make sure to return the exact content if specified.
+6. Reason for meeting - The reason for meeting if specified in the email. Make sure to summarize the reason in no more than 15 words.
+
+** Important Rule:**
+- The output must have exactly 3 values separated by a pipe (|).
 
 ### Output format:
-<company_name>|<job_role>|<job_id>|<application_status>|<sent_by>
-
-Return the extracted information in the format above, with each detail separated by a pipe, without any additional text or metadata. If any detail is not present in the email, return an empty string for that detail (e.g., if the job ID is not mentioned, return <company_name>|<job_role>||<application_status>|<sent_by>)."""
+<request_sent_by>|<requested_date_time>|<reason_for_meeting>"""
 
 # -----------------------------
 # INFORMATION EXTRACTION FUNCTIONS
@@ -115,14 +106,14 @@ def prompt_llm_for_info_extraction(email_content: str, examples: list = None):
 
     # Run it
     result = chain.invoke({"email_content": email_content})
-    return result.split("|")
+    return result.strip().split("|")
 
 
-def extract_JOB_info(email_content, examples=None):
+def extract_MEET_info(email_content, examples=None):
         
         result = prompt_llm_for_info_extraction(email_content, examples)
 
-        final_result = is_valid_result(result)
+        final_result = is_meet_result_valid(result)
         return final_result
 
 
@@ -130,18 +121,10 @@ def extract_JOB_info(email_content, examples=None):
 # INFORMATION EXTRACTION FALLBACK
 # -----------------------------
 
-def is_valid_result(result):
+def is_meet_result_valid(result):
 
-    if len(result) != 5: #If the result does not contain exactly four values, implement a fallback
-        return [str(result), "Error", "Error", "Error", "Error"]
-    
-    if (result[0] == ""):
-        result[0] = "Unknown"
-        return result
-    
-    if (result[3] not in ["application incomplete", "applied", "assessment", "interview", "job offered", "rejected", "withdrawn", "other"]):
-        result[3] = "other"
-        return result
+    if len(result) != 3: #If the result does not contain exactly four values, implement a fallback
+        return [str(result), "Error", "Error"]
     
     else:
         return result
