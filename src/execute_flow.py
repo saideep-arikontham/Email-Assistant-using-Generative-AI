@@ -8,6 +8,7 @@ from langgraph_flow import *
 from dotenv import load_dotenv
 from assign_email_label import *
 from read_thread import *
+from get_label_info import *
 
 # -----------------------------
 # SET UP ENVIRONMENT VARIABLES
@@ -53,6 +54,9 @@ def main():
                  "withdrawn":"Withdrawn",
                  "other":"Other"}
     
+    MEET_REQUEST_LABEL_ID = get_label_id("Meet Request")
+
+    
     parser = argparse.ArgumentParser(description="Print the provided ID.")
     parser.add_argument("id", help="The ID to be printed")
     args = parser.parse_args()
@@ -81,7 +85,7 @@ def main():
         thread_content = get_and_display_cleaned_thread(mail_details["thread_id"])
         print(f"\n\n{thread_mail_details}")
 
-        if('Label_4718307430553739191' in thread_mail_details['labels']):
+        if(MEET_REQUEST_LABEL_ID in thread_mail_details['labels']):
             print("Thread already labelled as Meet Request")
             assign_label_to_email(id, "Meet Request")
             
