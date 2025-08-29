@@ -54,9 +54,6 @@ def main():
                  "withdrawn":"Withdrawn",
                  "other":"Other"}
     
-    MEET_REQUEST_LABEL_ID = get_label_id("Meet Request")
-
-    
     parser = argparse.ArgumentParser(description="Print the provided ID.")
     parser.add_argument("id", help="The ID to be printed")
     args = parser.parse_args()
@@ -81,6 +78,7 @@ def main():
         return result
     
     else:
+        MEET_REQUEST_LABEL_ID = get_label_id("Meet Request")
         thread_mail_details = get_email_by_id(mail_details["thread_id"])
         thread_content = get_and_display_cleaned_thread(mail_details["thread_id"])
         print(f"\n\n{thread_mail_details}")
