@@ -15,6 +15,7 @@ from MEET_information_extraction import *
 from tracking import *
 from send_email import *
 from dotenv import load_dotenv
+from read_thread import *
 
 
 # -----------------------------
@@ -32,6 +33,8 @@ EMAIL = os.getenv("EMAIL_ID")
 
 class TypedDictState(TypedDict):
     state: str
+    message_id: str
+    thread_id: str
     email: str
     email_sent_on: str
     sender_email: str
@@ -121,7 +124,7 @@ def track_application_status(state: TypedDictState):
     job_details = state["job_details"]
     updates_df = pd.DataFrame([job_details], index=[0])
     insert_records("test_application_tracker", updates_df)
-    
+    print(state)
     return {"tracker_update": "Successful", "state": "Tracker update successful"}
 
 
@@ -155,15 +158,31 @@ def notify_user(state: TypedDictState):
     ## CODE TO SEND EMAIL TO THE USER ABOUT THIS EMAIL REQUIRING IMMEDIATE ATTENTION
     ## SENDER WILL BE THE SAME AS THE RECEIVER, WHICH IS THE USER.
 
-    email = state["email"]
+    email = get_and_display_cleaned_thread(state["thread_id"])
     to = EMAIL
-    subject = "IMPORTANT: Action Required for Meeting Request"
+    subject = f"IMPORTANT: Action Required for Meeting Request | {state['message_id']} | {state['thread_id']}"
     message = f"""You got a meeting request email that requires your immediate attention. Below are the details:\nEmail sent date: {state["email_sent_on"]}\nSender name: {state["meet_request_details"]["request_sent_by"]}\n\nEmail content:\n\n{email}"""
 
-    send_email(to, subject, message)
 
 
+    html = build_html_for_notifying(
+        email_sent_date=state["email_sent_on"],
+        sender_name=state["meet_request_details"]["request_sent_by"],
+        sender_email=state["sender_email"],
+        email_content=(
+            email
+        ),
+    )
 
+    send_html_email(
+        to=to,
+        subject=subject,
+        html_body=html,
+        text_fallback=message
+    )
+
+
+    print(state)
     return {"state": "User notified about the meeting request email"}
 
 
