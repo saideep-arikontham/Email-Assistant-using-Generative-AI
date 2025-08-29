@@ -1,0 +1,437 @@
+{
+  "name": "Email Assistant - LangGraph with advanced reply option",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        560,
+        352
+      ],
+      "id": "e4a497ff-9d7b-4f0c-92a1-d0ead852ab42",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -432,
+        0
+      ],
+      "id": "0b3c760a-2a46-401c-b797-f7eeb0fa1fdf",
+      "name": "Check for new emails",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "glaeXe9nHUfB36Bb",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0a44af0c-34f3-49c5-ba78-9565dcac5b05",
+              "leftValue": "={{ $json.subject }}",
+              "rightValue": "Re: ",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        176,
+        -224
+      ],
+      "id": "b5b1a8fd-8e4e-4af5-b7b8-4e85c39e8ddd",
+      "name": "Check if its a reply"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a118118a-7d8f-410f-8d6a-8609af63cf4c",
+              "leftValue": "={{ $json.from.value[0].address }}",
+              "rightValue": "=arikonthamsaideep@gmail.com",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "f38fab00-8aa9-42a5-ab58-32cd5f007135",
+              "leftValue": "={{ $json.from.value[0].address }}",
+              "rightValue": "={{ $json.to.value[0].address }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -192,
+        0
+      ],
+      "id": "ef134840-2cc4-4fc1-95c8-127e960e6438",
+      "name": "Check if it is a self email",
+      "notesInFlow": true,
+      "notes": "Check if this is an email that was sent to myself"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nlet my_dict = {}\nmy_dict = {\"message_id\": $('Check for new emails').first().json.subject.split(\"| \")[1], \"thread_id\": $('Check for new emails').first().json.subject.split(\"| \")[2]}\n\nreturn my_dict"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        -368
+      ],
+      "id": "05cbdd31-9bd1-45c9-93db-67974e81d997",
+      "name": "Extracting message id for advanced reply"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Check for new emails').item.json.id }}",
+        "labelIds": [
+          "Label_7278646546916726427",
+          "YELLOW_STAR"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        384,
+        -64
+      ],
+      "id": "98af1643-d1d9-4add-8833-c39e6b233ed9",
+      "name": "Add important label to the self email",
+      "webhookId": "7e5d52d1-b0fa-494f-a1ed-034b997a00fa",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "glaeXe9nHUfB36Bb",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=cd Projects/Email-Assistant-using-Generative-AI/src\nconda run -n mail_asst python get_email_content_for_n8n.py {{ $('Check for new emails').item.json.id }}"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        608,
+        -368
+      ],
+      "id": "357a94a0-ec05-4236-a4da-57a0c1372a78",
+      "name": "Get Email content"
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Extracting message id for advanced reply').item.json.message_id }}",
+        "message": "={{ $json.stdout\n  .replace(/\\r\\n/g, '\\n')           // normalize\n  .replace(/\\n\\s*\\n/g, '<br><br>')  // paragraph breaks\n  .replace(/\\n/g, ' ')              // single newlines -> space\n  .replace(/[ \\t]+/g, ' ')          // collapse spaces\n  .trim()\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        816,
+        -368
+      ],
+      "id": "d7d97d1f-a054-45ac-874f-36fc44a4a6f3",
+      "name": "Reply to the sender with extracted content",
+      "webhookId": "46c0e999-48b7-4964-bdc0-4c283a13d891",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "glaeXe9nHUfB36Bb",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e6a64df0-594e-4334-be9b-cbaadc1809de",
+              "leftValue": "={{ $json.to.value[0].address }}",
+              "rightValue": "arikonthamsaideep@gmail.com",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        176,
+        224
+      ],
+      "id": "71a4d141-1c15-42a2-89d5-2ac5fdacaa98",
+      "name": "If I received the email"
+    },
+    {
+      "parameters": {
+        "executeOnce": false,
+        "command": "=cd Projects/Email-Assistant-using-Generative-AI/src\nconda run -n mail_asst python execute_flow.py {{ $json.id }}"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        560,
+        112
+      ],
+      "id": "889e5deb-926a-4ec3-81a3-c06d5c756283",
+      "name": "Execute LangGraph flow",
+      "retryOnFail": true,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {
+    "Check for new emails": [
+      {
+        "json": {
+          "id": "198ec3a424bfd7e0",
+          "threadId": "198ec380377eb08e",
+          "labelIds": [
+            "UNREAD",
+            "IMPORTANT",
+            "CATEGORY_PERSONAL",
+            "INBOX"
+          ],
+          "sizeEstimate": 7623,
+          "headers": {
+            "delivered-to": "Delivered-To: arikonthamsaideep@gmail.com",
+            "received": "Received: from mail-sor-f41.google.com (mail-sor-f41.google.com. [209.85.220.41])\r\n        by mx.google.com with SMTPS id 4fb4d7f45d1cf-61c434eb63csor2640336a12.1.2025.08.27.08.51.38\r\n        for <arikonthamsaideep@gmail.com>\r\n        (Google Transport Security);\r\n        Wed, 27 Aug 2025 08:51:38 -0700 (PDT)",
+            "x-received": "X-Received: by 2002:a05:6402:2189:b0:615:77cf:782e with SMTP id\r\n 4fb4d7f45d1cf-61c1b6f247bmr14851447a12.25.1756309897263; Wed, 27 Aug 2025\r\n 08:51:37 -0700 (PDT)",
+            "arc-seal": "ARC-Seal: i=1; a=rsa-sha256; t=1756309898; cv=none;\r\n        d=google.com; s=arc-20240605;\r\n        b=Q4ZNSzht00s628u+5/hJbvfvzt6gwiM+0t9Y1XvDbVMOdcc9+lQakzKDZo8jfFZwkn\r\n         u3I+8DTnHZrzqZ25bf56ulNu7uhvQI8mCiR3c6xOZy0Ja8yJQnG2n+U6fveikoAz+/rI\r\n         zCWe33ZDdYrIfp8AghB7WfPYybMg9de1gVi4fPSOjvGQgahGCyjSn6sgZdYdpj4kSE9b\r\n         dP34yBzQxliMLzQnXeDrb02EilJzoR/G1Ys9o3Z/huERNkTrcBPLbjt1bSUW8STwvNyg\r\n         9EDKiKuzFFXKUUqvJFHL2NJDrVyqVJcpvfPu7P4PA2Nl9wxTi0KpJh5lrsjq4MOH4AwT\r\n         XmRA==",
+            "arc-message-signature": "ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20240605;\r\n        h=to:subject:message-id:date:from:in-reply-to:references:mime-version\r\n         :dkim-signature;\r\n        bh=wWj3ftNQAvBx/lphkmU0AYkWJdeyDfZsuXzrqmNxUUk=;\r\n        fh=wmcye2KGdHfAcxUKK+lxGpVQrc49Rbx6dprJe4rxq4g=;\r\n        b=koe/mt3Tqy3oxj9+1WpeQe/3fOnlhebMNoKnEDbDep+DtZM5IgqrxzNeupmyhd5rhO\r\n         IobzI+fNws5x9Q/l7LVoujSBs4zTNyIL18NvSwM8cErRq8RhsVu5f5m6vtZ1cvD1Dd45\r\n         16MDFoLJ5DKus3kqT+n6yZvirni75+mYie6frpVCGAdWFCqGbzz0i6/CkcyNkZwP0pi+\r\n         0Lh0AXaaL/rOuXlqDQNIAX8wGkWFLXfHpLN8gBDqzR3EypYcIQRWkCJ0Y/BnExMdVTk/\r\n         EVpe3zNJDqG0iuKmgEWKL0L3VlviAaE6iaH7w9QYjIOOU3Vbv0q7Iko5dWjKYAjrPfAI\r\n         hDEg==;\r\n        dara=google.com",
+            "arc-authentication-results": "ARC-Authentication-Results: i=1; mx.google.com;\r\n       dkim=pass header.i=@gmail.com header.s=20230601 header.b=\"EZEy/4QY\";\r\n       spf=pass (google.com: domain of saideepreddy99@gmail.com designates 209.85.220.41 as permitted sender) smtp.mailfrom=saideepreddy99@gmail.com;\r\n       dmarc=pass (p=NONE sp=QUARANTINE dis=NONE) header.from=gmail.com;\r\n       dara=pass header.i=@gmail.com",
+            "return-path": "Return-Path: <saideepreddy99@gmail.com>",
+            "received-spf": "Received-SPF: pass (google.com: domain of saideepreddy99@gmail.com designates 209.85.220.41 as permitted sender) client-ip=209.85.220.41;",
+            "authentication-results": "Authentication-Results: mx.google.com;\r\n       dkim=pass header.i=@gmail.com header.s=20230601 header.b=\"EZEy/4QY\";\r\n       spf=pass (google.com: domain of saideepreddy99@gmail.com designates 209.85.220.41 as permitted sender) smtp.mailfrom=saideepreddy99@gmail.com;\r\n       dmarc=pass (p=NONE sp=QUARANTINE dis=NONE) header.from=gmail.com;\r\n       dara=pass header.i=@gmail.com",
+            "dkim-signature": "DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;\r\n        d=gmail.com; s=20230601; t=1756309897; x=1756914697; dara=google.com;\r\n        h=to:subject:message-id:date:from:in-reply-to:references:mime-version\r\n         :from:to:cc:subject:date:message-id:reply-to;\r\n        bh=wWj3ftNQAvBx/lphkmU0AYkWJdeyDfZsuXzrqmNxUUk=;\r\n        b=EZEy/4QY2iSiyfyiGYGxijPOQJEGpS8zGDfg62xhEhHFmD7yEUEDsBTCee3xjTu8UC\r\n         aseqMtmaU28adWERBSGnLTkDLr8R21+/wxFA1rnLaf74dxyDYfHB3QaI4ewFUrkI47mD\r\n         1z5d++RKam5TMDnB8BtVsiwfgVVnCVqkHB6CTZRBNrB//kEjXezRXkUN5qKRTtFczIGt\r\n         drZK5zWAJSN/Z5ujwykJoSzJPL+0Un7CmvU8dWQFl0ciRkLabT4LveiyQ7vPvlgnnMZM\r\n         05vByDFCTA4OEq+L1Xn7CoachbPP8OeRoWnhMIEGN1YzLo+I09J3tMdduq6YTqJeygPa\r\n         XXpQ==",
+            "x-google-dkim-signature": "X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;\r\n        d=1e100.net; s=20230601; t=1756309897; x=1756914697;\r\n        h=to:subject:message-id:date:from:in-reply-to:references:mime-version\r\n         :x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;\r\n        bh=wWj3ftNQAvBx/lphkmU0AYkWJdeyDfZsuXzrqmNxUUk=;\r\n        b=vFy/NDabfGrH15n1CTdQ8dMVPF04xBoyaPuOy1kINtIPXQlkXM8BjmVnZknyq8+l5J\r\n         fdMGk+Y9PGPt5+K3do8mXpRBDWGqddUo0nylp8/5ESbhC6AnBAf3JGPLRmxayvCKO2AT\r\n         OJHzJp2knvpMoq3o8q7qsgcotbt0sKfGeRSoKWMTrBCs5QjXqO7PGDtiB9rFxrSvkxN+\r\n         y53enAns1OEGy9Bp7H6Gey13ljkM5QWyduhnAmlANa5BGsi4uWkch+1rMpK71wyZuglL\r\n         erxXnMIr8dKZCtBy5GV4conlhL/rAQFXYK4Oyra4WLVLCOOjXMcs5AszemMwyQjHVMgT\r\n         T2XQ==",
+            "x-gm-message-state": "X-Gm-Message-State: AOJu0Ywn4Bg0YhuUd7EtLkqmIIfthcqGjKvRW96/uZiaxij/9nRMFYRP\r\n\t+RTQvsR6ehnOo0Nc8w8P+tZ5c5yKZrUCB6ExKNViAWsDxJDKNGJbVZiwLtgL2lhSl14fNxMR4oW\r\n\tjc84gm7+exy0WnVV8blSt9K4k5bPRH+ZxCYQM",
+            "x-gm-gg": "X-Gm-Gg: ASbGnctX1FSJcwrpSLpFVFOHfaVFSmbzokxVuxqeigOoLpx0cE/4vsqDaYYr5PtEpq/\r\n\tPZ2JFoXGcL9fI2t1iuc9tKazUnyBDo90KD9bi79IDR071RLyXmqkgZMViX3MAwCGMoQC7qBfP0V\r\n\tANLb4gK6maSMr7QuN4YZC1POEpeUtPbm7YXkm1UMhnVMVd1HEZVr9a2bgL3jw8ORxd3z2anAgCd\r\n\tEo9aLDWvkFtIU5G/Qt13u8wcRMPXpLrxt2yQQCF9BHbQwZB4KCjG4cReL7j",
+            "x-google-smtp-source": "X-Google-Smtp-Source: AGHT+IFs1OyxCmSRVJX5vice2BYOlPgsOJpKB0Mt05sA//NZMCcIKC/jtvCxmxqpgh93kXpdvV4bmwe7yilLhU7rOso=",
+            "mime-version": "MIME-Version: 1.0",
+            "references": "References: <CAJsAE9kH=haEu9K=19PtOjE4ArvZa=2qwpGrtRr8tP0YCts7QQ@mail.gmail.com>\r\n <CACnHCoRkBv_AHg3jwCVfU8QHL5jJCfvgONdAV-jWDkoxFAuazA@mail.gmail.com>",
+            "in-reply-to": "In-Reply-To: <CACnHCoRkBv_AHg3jwCVfU8QHL5jJCfvgONdAV-jWDkoxFAuazA@mail.gmail.com>",
+            "from": "From: Saideep Arikontham <saideepreddy99@gmail.com>",
+            "date": "Date: Wed, 27 Aug 2025 11:51:24 -0400",
+            "x-gm-features": "X-Gm-Features: Ac12FXwbilsQSx9kBXWDd-RPOCjzoqmXyJfLYmIbVFjBU4_zQfSOcc0Cr0umegw",
+            "message-id": "Message-ID: <CAJsAE9keT7YBRW2FBOfWb_5-P4MPxOnJh4o-+62ivyGNQ3017w@mail.gmail.com>",
+            "subject": "Subject: Re: Catch up",
+            "to": "To: Saideep Arikontham <arikonthamsaideep@gmail.com>",
+            "content-type": "Content-Type: multipart/alternative; boundary=\"0000000000008ac09b063d5ac30b\""
+          },
+          "html": "<div dir=\"ltr\">Can we meet tomorrow at the plaza at 10pm. I have to talk to you about something important.</div><br><div class=\"gmail_quote gmail_quote_container\"><div dir=\"ltr\" class=\"gmail_attr\">On Wed, Aug 27, 2025 at 11:49 AM Saideep Arikontham &lt;<a href=\"mailto:arikonthamsaideep@gmail.com\">arikonthamsaideep@gmail.com</a>&gt; wrote:<br></div><blockquote class=\"gmail_quote\" style=\"margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex\"><div dir=\"ltr\">I&#39;m good, how about you? </div><br><div class=\"gmail_quote\"><div dir=\"ltr\" class=\"gmail_attr\">On Wed, Aug 27, 2025 at 11:49 AM Saideep Arikontham &lt;<a href=\"mailto:saideepreddy99@gmail.com\" target=\"_blank\">saideepreddy99@gmail.com</a>&gt; wrote:<br></div><blockquote class=\"gmail_quote\" style=\"margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex\"><div dir=\"ltr\">Hey S,<div><br></div><div>How are you? It&#39;s been so long.</div><div><br></div><div>Regards,</div><div>Saideep</div></div>\n</blockquote></div>\n</blockquote></div>\n",
+          "text": "Can we meet tomorrow at the plaza at 10pm. I have to talk to you about\nsomething important.\n\nOn Wed, Aug 27, 2025 at 11:49 AM Saideep Arikontham <\narikonthamsaideep@gmail.com> wrote:\n\n> I'm good, how about you?\n>\n> On Wed, Aug 27, 2025 at 11:49 AM Saideep Arikontham <\n> saideepreddy99@gmail.com> wrote:\n>\n>> Hey S,\n>>\n>> How are you? It's been so long.\n>>\n>> Regards,\n>> Saideep\n>>\n>\n",
+          "textAsHtml": "<p>Can we meet tomorrow at the plaza at 10pm. I have to talk to you about<br/>something important.</p><p>On Wed, Aug 27, 2025 at 11:49&#x202F;AM Saideep Arikontham &lt;<br/><a href=\"mailto:arikonthamsaideep@gmail.com\">arikonthamsaideep@gmail.com</a>&gt; wrote:</p><p>&gt; I&apos;m good, how about you?<br/>&gt;<br/>&gt; On Wed, Aug 27, 2025 at 11:49&#x202F;AM Saideep Arikontham &lt;<br/>&gt; <a href=\"mailto:saideepreddy99@gmail.com\">saideepreddy99@gmail.com</a>&gt; wrote:<br/>&gt;<br/>&gt;&gt; Hey S,<br/>&gt;&gt;<br/>&gt;&gt; How are you? It&apos;s been so long.<br/>&gt;&gt;<br/>&gt;&gt; Regards,<br/>&gt;&gt; Saideep<br/>&gt;&gt;<br/>&gt;</p>",
+          "subject": "Re: Catch up",
+          "references": [
+            "<CAJsAE9kH=haEu9K=19PtOjE4ArvZa=2qwpGrtRr8tP0YCts7QQ@mail.gmail.com>",
+            "<CACnHCoRkBv_AHg3jwCVfU8QHL5jJCfvgONdAV-jWDkoxFAuazA@mail.gmail.com>"
+          ],
+          "date": "2025-08-27T15:51:24.000Z",
+          "to": {
+            "value": [
+              {
+                "address": "arikonthamsaideep@gmail.com",
+                "name": "Saideep Arikontham"
+              }
+            ],
+            "html": "<span class=\"mp_address_group\"><span class=\"mp_address_name\">Saideep Arikontham</span> &lt;<a href=\"mailto:arikonthamsaideep@gmail.com\" class=\"mp_address_email\">arikonthamsaideep@gmail.com</a>&gt;</span>",
+            "text": "\"Saideep Arikontham\" <arikonthamsaideep@gmail.com>"
+          },
+          "from": {
+            "value": [
+              {
+                "address": "saideepreddy99@gmail.com",
+                "name": "Saideep Arikontham"
+              }
+            ],
+            "html": "<span class=\"mp_address_group\"><span class=\"mp_address_name\">Saideep Arikontham</span> &lt;<a href=\"mailto:saideepreddy99@gmail.com\" class=\"mp_address_email\">saideepreddy99@gmail.com</a>&gt;</span>",
+            "text": "\"Saideep Arikontham\" <saideepreddy99@gmail.com>"
+          },
+          "messageId": "<CAJsAE9keT7YBRW2FBOfWb_5-P4MPxOnJh4o-+62ivyGNQ3017w@mail.gmail.com>",
+          "inReplyTo": "<CACnHCoRkBv_AHg3jwCVfU8QHL5jJCfvgONdAV-jWDkoxFAuazA@mail.gmail.com>"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Check for new emails": {
+      "main": [
+        [
+          {
+            "node": "Check if it is a self email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if its a reply": {
+      "main": [
+        [
+          {
+            "node": "Extracting message id for advanced reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add important label to the self email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if it is a self email": {
+      "main": [
+        [
+          {
+            "node": "Check if its a reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If I received the email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extracting message id for advanced reply": {
+      "main": [
+        [
+          {
+            "node": "Get Email content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Email content": {
+      "main": [
+        [
+          {
+            "node": "Reply to the sender with extracted content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If I received the email": {
+      "main": [
+        [
+          {
+            "node": "Execute LangGraph flow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute LangGraph flow": {
+      "main": [
+        [],
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9b87ad60-c455-4c5a-a40b-6d1cc4c2087d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b052a7c427d05ed04972407e1f6ce918d1235c73855f65249d41b0a5e1a274e3"
+  },
+  "id": "qyCku9TVtuPUDNib",
+  "tags": [
+    {
+      "createdAt": "2025-08-21T05:00:08.141Z",
+      "updatedAt": "2025-08-21T05:00:08.141Z",
+      "id": "sKezkm3f61mgMBXA",
+      "name": "email_assistant_python"
+    }
+  ]
+}
