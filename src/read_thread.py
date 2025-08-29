@@ -179,3 +179,17 @@ def get_and_display_cleaned_thread(thread_id: str) -> None:
 
     sorted_emails = sorted(emails_to_sort, key=lambda e: e["internalDate"])
     return clean_and_present_thread(sorted_emails)
+
+
+def get_first_message_id_from_thread(thread_id: str) -> str | None:
+    """
+    Return the message ID of the first message in the thread.
+    By default, Gmail API returns messages sorted oldest → newest.
+    """
+    service = get_gmail_service()
+    thread = service.users().threads().get(userId="me", id=thread_id).execute()
+    messages = thread.get("messages", [])
+    if not messages:
+        return None
+    # First message in the thread is usually index 0
+    return messages[0]["id"]

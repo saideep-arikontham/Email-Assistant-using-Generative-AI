@@ -27,15 +27,16 @@ def invoke_graph(id, mail_details, graph, label_map):
         email = f"Subject: {mail_details['subject']}\n\n{mail_details['body']}"
         result = graph.invoke({"email": email, "email_sent_on": mail_details["date"], "sender_email": mail_details["sender"], "message_id": id, "thread_id": mail_details["thread_id"]})
 
+        first_mail_in_thread_id = get_first_message_id_from_thread(mail_details["thread_id"])
         if(result["is_both_job_and_meet"]):
                 assign_label_to_email(id, f'Job Update/{label_map[result["job_details"]["application_status"]]}')
-                assign_label_to_email(mail_details["thread_id"], "Meet Request")
+                assign_label_to_email(first_mail_in_thread_id, "Meet Request")
 
         elif(result["classification"]=="JOB"):
             assign_label_to_email(id, f'Job Update/{label_map[result["job_details"]["application_status"]]}')
 
         elif(result["classification"]=="MEET"):
-            assign_label_to_email(mail_details["thread_id"], "Meet Request")
+            assign_label_to_email(first_mail_in_thread_id, "Meet Request")
 
         return result
 
@@ -79,8 +80,11 @@ def main():
     
     else:
         MEET_REQUEST_LABEL_ID = get_label_id("Meet Request")
-        thread_mail_details = get_email_by_id(mail_details["thread_id"])
+
         thread_content = get_and_display_cleaned_thread(mail_details["thread_id"])
+        first_mail_in_thread_id = get_first_message_id_from_thread(mail_details["thread_id"])
+        thread_mail_details = get_email_by_id(first_mail_in_thread_id)
+        
         print(f"\n\n{thread_mail_details}")
 
         if(MEET_REQUEST_LABEL_ID in thread_mail_details['labels']):
